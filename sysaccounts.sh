@@ -14,15 +14,16 @@ function isinteger()
 {
   # expects a single argument
   # integer can optionally be prefixed with a + or -
-  # sign prefixed
+  #
+  # sign is prefixed
   if [[ $1 =~ ^[-+][0-9]+$ ]]; then
     return 0
   fi
-  # sign not prefixed
+  # sign is not prefixed
   if [[ $1 =~ ^[0-9]+$ ]]; then
     return 0
   fi
-  return 1
+  return 1 # is not an integer
 }
 
 # get SYS_UID_MIN and SYS_UID_MAX values
@@ -35,7 +36,7 @@ if [ ! -f "$logindefs" ]; then
 fi
 
 # expected format is SYS_UID_MIN<tab(s)&|space(s)><signed integer>
-# assuming just 1 entry
+# expecting 1 occurence
 
 sysuidmin="$(grep SYS_UID_MIN $logindefs | awk '{print $2}')"
 
@@ -54,7 +55,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # expected format is SYS_UID_MAX<tab(s)&|space(s)><signed integer>
-# assuming just 1 entry
+# expecting 1 occurence
 
 sysuidmax="$(grep SYS_UID_MAX $logindefs | awk '{print $2}')"
 
@@ -86,6 +87,7 @@ echo -e "System accounts found (showing login+shell): \n$logins"
 # disable password and remove interactive shell for each system account
 
 for login in $logins; do
+  echo $login
   # usermod -L ${login%\ }
   if [ ${login#\ } != "/usr/sbin/login" && ${login#\ } != "/bin/false" ]; then
     # usermod -s /usr/bin/nologin ${login%\ }
