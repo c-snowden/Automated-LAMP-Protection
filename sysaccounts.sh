@@ -7,7 +7,7 @@
 # specifications:
 # using UID to identify system accounts
 # using /etc/login.defs to identify system account min and max UID
-# if system account is configured with /usr/bin/nologin or /bin/false then ignore
+# if system account is configured with /usr/bin/nologin or /bin/false then do not change the login shell
 # root is a system account but is deliberately excluded because login with an interactive shell is still required for root
 
 function isinteger()
