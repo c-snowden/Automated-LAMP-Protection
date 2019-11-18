@@ -26,6 +26,38 @@ function isinteger()
   return 1 # is not an integer
 }
 
+function getlogins()
+{
+  # expects 2 args
+  # arg 1 is sys uid min
+  # arg 2 is sys uid max
+  echo -e "$(getent passwd | awk -F: -v uidmin=$1 -v uidmax=$2 '$1!="root" && $3>=uidmin && $3<=uidmax" {printf "%s %s\n", $1, $7}')"
+}
+
+function disablelogins()
+{
+  # expects a single argument containing 0 or more login and shell word pairs
+  # space separates login from shell
+  # \n separates each pair
+  local IFS="$(printf '\n')"
+  for login in $1; do
+    echo $login
+    loginname="${login%\ }"
+    shell="${login#\ }"
+    # usermod -L $loginname
+    if [ ! $? -eq 0 ]; then
+      echo "ERROR: Unable to disable login $loginname"
+    fi
+    if [ "$shell" != "/usr/sbin/login" && "$shell" != "/bin/false" ]; then
+      usermod -s /usr/bin/nologin $loginname
+      if [ ! $? -eq 0 ]; then
+        echo "ERROR: Unable to change the login shell for $loginname"
+      fi
+    fi
+  done
+  return 0
+}
+
 # get SYS_UID_MIN and SYS_UID_MAX values
 
 logindefs="/etc/login.defs"
@@ -75,21 +107,21 @@ fi
 
 nologinshell="/usr/sbin/nologin"
 
-logins="$(getent passwd | awk -F: -v uidmin=$sysuidmin -v uidmax=$sysuidmax '$1!="root" && $3>=uidmin && $3<=uidmax" {printf "%s %s\n", $1, $7}')"
+# logins="$(getent passwd | awk -F: -v uidmin=$sysuidmin -v uidmax=$sysuidmax '$1!="root" && $3>=uidmin && $3<=uidmax" {printf "%s %s\n", $1, $7}')"
+logins="$(getlogins $sysuidmin $sysuidmax)"
 
 if [ -z "$logins" ]; then
   echo "Exiting because no system accounts found"
   exit 99
 fi
 
-echo -e "System accounts found (showing login+shell): \n$logins"
+echo -e "System accounts found (showing login and shell): \n$logins"
 
 # disable password and remove interactive shell for each system account
 
-for login in $logins; do
-  echo $login
-  # usermod -L ${login%\ }
-  if [ ${login#\ } != "/usr/sbin/login" && ${login#\ } != "/bin/false" ]; then
-    # usermod -s /usr/bin/nologin ${login%\ }
-  fi
-done
+disablelogins $logins
+
+# show the impact of the changes
+
+echo "Showing the system accounts after the changes "
+echo -e "$(getlogins $sysuidmin $sysuidmax)"
