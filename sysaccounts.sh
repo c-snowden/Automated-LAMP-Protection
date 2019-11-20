@@ -27,14 +27,14 @@ function isinteger()
   return 1 # is not an integer
 }
 
+
 function getlogins()
 {
   # expects 2 args
   # arg 1 is uid min
   # arg 2 is uid max
   local uidmin=$1; local uidmax=$2
-  # echo -e "$(getent passwd | awk -F: -v uidmin=$uidmin -v uidmax=$uidmax '$1!=\"root\" && $3>=uidmin && $3<=uidmax {printf \"%s %s\n\", $1, $7}')"
-  echo "$(getent passwd | awk -F: -v uidmin=$uidmin -v uidmax=$uidmax '$1!=\"root\" && $3>=uidmin && $3<=uidmax {printf \"%s\", $1}')"
+  echo $(getent passwd | awk -F: -v uidmin=$uidmin -v uidmax=$uidmax '$1!="root" && $3>=uidmin && $3<=uidmax {printf "%s ", $1}')
 }
 
 function getshell()
@@ -42,7 +42,7 @@ function getshell()
   # expects 1 arg
   # arg is login name
   local login="$(getent passwd $1)"
-  echo "${login##:}"
+  echo ${login##*:}
 }
 
 function disablelogins()
@@ -51,19 +51,12 @@ function disablelogins()
   # local IFS="$(printf '\n')"
   local login
   for login in $1; do
-    echo $login
-    # loginname="${login%\ }"
-    # shell="${login#\ }"
     # usermod -L $login
-    if [ ! $? -eq 0 ]; then
-      echo "ERROR: Unable to disable login $login"
-    fi
-    shell=$(getshell $login)
-    if [ "$shell" != "/usr/sbin/login" && "$shell" != "/bin/false" ]; then
+    if [ $? -ne 0 ]; then echo "ERROR: Unable to disable login $login"; fi
+    local shell=$(getshell $login)
+    if [ "$shell" != "/usr/sbin/login" ] && [ "$shell" != "/bin/false" ]; then
       usermod -s /usr/bin/nologin $login
-      if [ ! $? -eq 0 ]; then
-        echo "ERROR: Unable to change the login shell for $login"
-      fi
+      if [ $? -ne 0 ]; then echo "ERROR: Unable to change the login shell for $login"; fi
     fi
   done
   return 0
@@ -118,7 +111,6 @@ fi
 
 nologinshell="/usr/sbin/nologin"
 
-# logins="$(getent passwd | awk -F: -v uidmin=$sysuidmin -v uidmax=$sysuidmax '$1!="root" && $3>=uidmin && $3<=uidmax" {printf "%s %s\n", $1, $7}')"
 logins="$(getlogins $sysuidmin $sysuidmax)"
 
 if [ -z "$logins" ]; then
@@ -126,16 +118,15 @@ if [ -z "$logins" ]; then
   exit 99
 fi
 
-echo -e "System accounts found: \n$logins"
+echo "System accounts found: $logins"
 
 # deny login and remove interactive shell for each system account
 
-disablelogins $logins
+disablelogins "$logins"
 
 # show the impact of the changes
 
-echo "Showing system account login and shell"
-# echo -e "$(getlogins $sysuidmin $sysuidmax)"
+echo "Showing system account login and shell:"
 for login in $logins; do
   echo "$login $(getshell $login)"
 done
