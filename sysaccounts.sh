@@ -15,12 +15,13 @@ function isinteger()
   # expects a single argument
   # integer can optionally be prefixed with a + or -
   #
+  local arg=$1
   # sign is prefixed
-  if [[ $1 =~ ^[-+][0-9]+$ ]]; then
+  if [[ $arg =~ ^[-+][0-9]+$ ]]; then
     return 0
   fi
   # sign is not prefixed
-  if [[ $1 =~ ^[0-9]+$ ]]; then
+  if [[ $arg =~ ^[0-9]+$ ]]; then
     return 0
   fi
   return 1 # is not an integer
@@ -29,29 +30,39 @@ function isinteger()
 function getlogins()
 {
   # expects 2 args
-  # arg 1 is sys uid min
-  # arg 2 is sys uid max
-  echo -e "$(getent passwd | awk -F: -v uidmin=$1 -v uidmax=$2 '$1!="root" && $3>=uidmin && $3<=uidmax" {printf "%s %s\n", $1, $7}')"
+  # arg 1 is uid min
+  # arg 2 is uid max
+  local uidmin=$1; local uidmax=$2
+  # echo -e "$(getent passwd | awk -F: -v uidmin=$uidmin -v uidmax=$uidmax '$1!=\"root\" && $3>=uidmin && $3<=uidmax {printf \"%s %s\n\", $1, $7}')"
+  echo "$(getent passwd | awk -F: -v uidmin=$uidmin -v uidmax=$uidmax '$1!=\"root\" && $3>=uidmin && $3<=uidmax {printf \"%s\", $1}')"
+}
+
+function getshell()
+{
+  # expects 1 arg
+  # arg is login name
+  local login="$(getent passwd $1)"
+  echo "${login##:}"
 }
 
 function disablelogins()
 {
-  # expects a single argument containing 0 or more login and shell word pairs
-  # space separates login from shell
-  # \n separates each pair
-  local IFS="$(printf '\n')"
+  # expects a single argument containing 0 or more logins
+  # local IFS="$(printf '\n')"
+  local login
   for login in $1; do
     echo $login
-    loginname="${login%\ }"
-    shell="${login#\ }"
-    # usermod -L $loginname
+    # loginname="${login%\ }"
+    # shell="${login#\ }"
+    # usermod -L $login
     if [ ! $? -eq 0 ]; then
-      echo "ERROR: Unable to disable login $loginname"
+      echo "ERROR: Unable to disable login $login"
     fi
+    shell=$(getshell $login)
     if [ "$shell" != "/usr/sbin/login" && "$shell" != "/bin/false" ]; then
-      usermod -s /usr/bin/nologin $loginname
+      usermod -s /usr/bin/nologin $login
       if [ ! $? -eq 0 ]; then
-        echo "ERROR: Unable to change the login shell for $loginname"
+        echo "ERROR: Unable to change the login shell for $login"
       fi
     fi
   done
@@ -115,13 +126,16 @@ if [ -z "$logins" ]; then
   exit 99
 fi
 
-echo -e "System accounts found (showing login and shell): \n$logins"
+echo -e "System accounts found: \n$logins"
 
-# disable password and remove interactive shell for each system account
+# deny login and remove interactive shell for each system account
 
 disablelogins $logins
 
 # show the impact of the changes
 
-echo "Showing the system accounts after the changes "
-echo -e "$(getlogins $sysuidmin $sysuidmax)"
+echo "Showing system account login and shell"
+# echo -e "$(getlogins $sysuidmin $sysuidmax)"
+for login in $logins; do
+  echo "$login $(getshell $login)"
+done
