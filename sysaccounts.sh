@@ -10,40 +10,11 @@
 # if system account is configured with /usr/bin/nologin or /bin/false then do not change the login shell
 # root is a system account but is deliberately excluded because login with an interactive shell is still required for root
 
-function isinteger()
-{
-  # expects a single argument
-  # integer can optionally be prefixed with a + or -
-  #
-  local arg=$1
-  # sign is prefixed
-  if [[ $arg =~ ^[-+][0-9]+$ ]]; then
-    return 0
-  fi
-  # sign is not prefixed
-  if [[ $arg =~ ^[0-9]+$ ]]; then
-    return 0
-  fi
-  return 1 # is not an integer
-}
+INCLUDEDIR=$(dirname "${BASH_SOURCE[0]}")
 
-
-function getlogins()
-{
-  # expects 2 args
-  # arg 1 is uid min
-  # arg 2 is uid max
-  local uidmin=$1; local uidmax=$2
-  echo $(getent passwd | awk -F: -v uidmin=$uidmin -v uidmax=$uidmax '$1!="root" && $3>=uidmin && $3<=uidmax {printf "%s ", $1}')
-}
-
-function getshell()
-{
-  # expects 1 arg
-  # arg is login name
-  local login="$(getent passwd $1)"
-  echo ${login##*:}
-}
+. $INCLUDEDIR/isinteger.sh
+. $INCLUDEDIR/getloginshell.sh
+. $INCLUDEDIR/getloginsbyuid.sh
 
 function disablelogins()
 {
@@ -51,9 +22,10 @@ function disablelogins()
   # local IFS="$(printf '\n')"
   local login
   for login in $1; do
+    if [ "$login" = "root" ]; then echo "Ignoring root"; continue; fi
     # usermod -L $login
     if [ $? -ne 0 ]; then echo "ERROR: Unable to disable login $login"; fi
-    local shell=$(getshell $login)
+    local shell=$(getloginshell $login)
     if [ "$shell" != "/usr/sbin/login" ] && [ "$shell" != "/bin/false" ]; then
       usermod -s /usr/bin/nologin $login
       if [ $? -ne 0 ]; then echo "ERROR: Unable to change the login shell for $login"; fi
@@ -111,7 +83,7 @@ fi
 
 nologinshell="/usr/sbin/nologin"
 
-logins="$(getlogins $sysuidmin $sysuidmax)"
+logins="$(getloginsbyuid $sysuidmin $sysuidmax)"
 
 if [ -z "$logins" ]; then
   echo "Exiting because no system accounts found"
@@ -128,5 +100,5 @@ disablelogins "$logins"
 
 echo "Showing system account login and shell:"
 for login in $logins; do
-  echo "$login $(getshell $login)"
+  echo "$login $(getloginshell $login)"
 done
