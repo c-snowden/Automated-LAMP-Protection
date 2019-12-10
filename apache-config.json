@@ -1,0 +1,4 @@
+{  "apache-config": [
+  { "param_name": "RewriteCond %{QUERY_STRING} ^author=([0-9]*)", "param_value": "RewriteRule .* zestnaturalhealth.com/? [L,R=302]", "param_action": "Replace" }
+  ]
+}
